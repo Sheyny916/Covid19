@@ -1,0 +1,151 @@
+---
+title: "Pc3_1"
+author: "Franco Prada Francis, Gonzales Gala Jennifer, Ocho de la Cruz Phyllis , Yancce Buleje Jean Marco , Yañez de la Cruz Sheyny Briggite"
+format: html
+editor: visual
+---
+
+# Cargar e instalar paquetes
+
+```{r}
+install.packages("cardx")
+install.packages("gtsummary")
+install.packages("car")
+install.packages("broom.helpers")
+
+library(cardx)
+
+library(tidyverse)
+library(here)
+library(rio)
+library(gtsummary)
+library(car)
+library(readr)
+library(broom.helpers)
+```
+
+## CARGA DE BASE DATOS
+
+Se carga la base de datos `covid_19.csv`, la cual contiene información clínica, demográfica y de laboratorio de pacientes diagnosticados con COVID-19. Esta base contiene 855 registros y 85 variables.
+
+```{r}
+covid_19 <- read_csv("C:/Users/franc/Desktop/SISTEMAS Y ESTADISTICAS/PROYECT_UPSJB/Data/covid_19.csv")
+```
+
+```{r}
+s10_asma <- read_csv("C:/Users/franc/Desktop/SISTEMAS Y ESTADISTICAS/PROYECT_UPSJB/Data/s10_asma.csv")
+```
+
+# PREPARAR VARIABLES PARA MODELOS
+
+Se crean las variables categóricas necesarias para la regresión logística. La variable `desenla_fallecido` indica si el paciente falleció (Sí/No), y se establece "No" como referencia. La variable `enfer_renal` indica la presencia o ausencia de enfermedad renal crónica, también con "No" como referencia.
+
+```{r}
+covid <- covid_19 |>
+  mutate(
+    desenlace = relevel(as.factor(desenla_fallecido), ref = "No"),
+    enfer_renal = relevel(as.factor(enfer_renal), ref = "No")
+  )
+```
+
+## **REGRESIÓN LOGÍSTICA (MORTALIDAD \~ ENFERMEDAD RENAL + EDAD)**
+
+Se ajusta un modelo de regresión logística para evaluar la asociación entre mortalidad (`desenla_fallecido`) y dos variables independientes: presencia de enfermedad renal crónica (`enfer_renal`) y edad (`Edad`). El modelo permite estimar el riesgo de fallecimiento según estas características clínicas.
+
+```{r}
+modelo_log <- glm(desenlace ~ enfer_renal + Edad,
+                  family = binomial,
+                  data = covid)
+
+summary(modelo_log)
+```
+
+## CALCULAR ODDS RATIO (OR) E INTERVALOS DE CONFIANZA
+
+Se calculan los odds ratios (OR) y sus respectivos intervalos de confianza al 95% para los coeficientes obtenidos en el modelo. Estos valores permiten interpretar la magnitud y dirección de la asociación entre las variables independientes y el desenlace de mortalidad.
+
+```{r}
+exp(coef(modelo_log)[-1])  # OR
+exp(confint(modelo_log))[-1, , drop = FALSE]  # IC 95%
+```
+
+Se genera una tabla resumen con los resultados del modelo de regresión logística. La tabla incluye los odds ratios (OR) no ajustados, intervalos de confianza al 95% y valores p para las variables Edad y Enfermedad renal crónica, en relación al desenlace de mortalidad.
+
+```{r}
+theme_gtsummary_language(language = "es")
+
+tabla_logistica <- covid |>
+  tbl_uvregression(
+    include = c(Edad, enfer_renal),
+    y = desenlace,
+    method = glm,
+    method.args = list(family = binomial),
+    exponentiate = TRUE,
+    conf.int = TRUE,
+    hide_n = TRUE,
+    label = list(
+      Edad ~ "Edad (años)",
+      enfer_renal ~ "Enfermedad renal crónica"
+    )
+  ) |>
+  bold_labels() |>
+  bold_p(t = 0.05) |>
+  modify_header(estimate = "**OR no ajustado**", p.value = "**Valor P**")
+
+tabla_logistica
+
+```
+
+En la población estudiada, la presencia de enfermedad renal crónica se asocia con un aumento significativo en el riesgo de fallecimiento por COVID-19. Asimismo, la edad muestra una relación positiva con la mortalidad, indicando que a mayor edad, mayor es el riesgo de fallecer.
+
+## REGRESIÓN DE POISSON (DÍAS HOSPITALIZADO)
+
+Se convierten en factores las variables `diabetes_mell_simple` y `falla_card_conges`, que indican si el paciente presenta diabetes mellitus o falla cardíaca congestiva. Se establece la categoría "No" como referencia para ambas.
+
+```{r}
+covid <- covid |>
+  mutate(
+    diabetes = relevel(as.factor(diabetes_mell_simple), ref = "No"),
+    falla_cardiaca = relevel(as.factor(falla_card_conges), ref = "No")
+  )
+
+```
+
+Se ajusta un modelo de regresión de Poisson para evaluar la asociación entre la duración de la hospitalización (`duraci_hospita_diaz`) y las variables diabetes mellitus, falla cardíaca congestiva y edad. Este modelo permite estimar el efecto de estas condiciones sobre el número de días de hospitalización.
+
+```{r}
+modelo_poisson <- glm(duraci_hospita_diaz ~ diabetes + falla_cardiaca + Edad,
+                      data = covid,
+                      family = poisson())
+
+summary(modelo_poisson)
+```
+
+Finalmente se calculan las razones de tasas de incidencia (IRR) y los intervalos de confianza al 95% para las variables del modelo de Poisson. Los IRR indican cuánto se incrementa o disminuye la duración de hospitalización según la presencia de cada factor.
+
+Se genera una tabla con los resultados del modelo de Poisson, mostrando las razones de incidencia (IRR), intervalos de confianza al 95% y valores p para cada predictor. Esta tabla resume el efecto de la edad, la diabetes y la falla cardíaca en la duración de la hospitalización.
+
+```{r}
+tabla_poisson <- covid |>
+  tbl_uvregression(
+    include = c(diabetes, falla_cardiaca, Edad),
+    y = duraci_hospita_diaz,
+    method = glm,
+    method.args = list(family = poisson),
+    exponentiate = TRUE,
+    conf.int = TRUE,
+    hide_n = TRUE,
+    label = list(
+      diabetes ~ "Diabetes mellitus simple",
+      falla_cardiaca ~ "Falla cardíaca congestiva",
+      Edad ~ "Edad (años)"
+    )
+  ) |>
+  bold_labels() |>
+  bold_p(t = 0.05) |>
+  modify_header(estimate = "**IRR no ajustado**", p.value = "**Valor P**")
+
+tabla_poisson
+```
+
+Los pacientes con diabetes mellitus simple y aquellos con falla cardíaca congestiva presentan una mayor duración de hospitalización. Además, por cada año adicional de edad, se observa un ligero aumento en el número de días hospitalizados.

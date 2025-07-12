@@ -1,0 +1,202 @@
+---
+title: "Pc3_2"
+author: "Franco Prada Francis, Gonzales Gala Jennifer, Ocho de la Cruz Phyllis , Yancce Buleje Jean Marco , Yañez de la Cruz Sheyny Briggite"
+format: html
+editor: visual
+---
+
+## Instalar paquetes
+
+```{r}
+install.packages("performance")
+```
+
+## Carga de paquetes
+
+```{r}
+library(tidyverse)
+library(here)
+library(rio)
+library(gtsummary)
+library(car)
+library(survival)
+library(performance)
+```
+
+### Carga de la base de datos COVID-19
+
+```{r}
+covid_19 <- read_csv("C:/Users/franc/Desktop/SISTEMAS Y ESTADISTICAS/PROYECT_UPSJB/Data/covid_19.csv")
+```
+
+## Preparación de variables
+
+Se preparan las variables para el análisis:
+
+-   desenlace es la variable dependiente (falleció: Sí/No).
+
+-   edad_cat es la edad categorizada, usando como referencia 0–60 años.
+
+-   diabetes se crea unificando diabetes simple y complicada.
+
+Se renombran variables de laboratorio y se seleccionan columnas relevantes. Se eliminan los registros incompletos para evitar errores en los modelos.
+
+```{r}
+covid_modelo <- covid_19 |> 
+  mutate(
+    desenlace = relevel(as.factor(desenla_fallecido), ref = "No"),
+    edad_cat = relevel(as.factor(edad), ref = "0-60"),
+    diabetes = if_else(diabetes_mell_simple == "Sí" | diabetes_mell_complicada == "Sí", "Sí", "No"),
+    epoc = as.factor(enf_pulmonar_obstruc_cronica),
+    falla_card = as.factor(falla_card_conges)
+  ) |> 
+  select(desenlace, edad_cat, diabetes, epoc, falla_card,
+         temperatura = Temperatura,
+         saturacion = Saturación_O2,
+         dimero_d = Dímero_D,
+         glucosa = Glucosa,
+         creatinina = Creatinina,
+         ferritina = Ferritina,
+         pcr = `Proteína_C_reactiva`,
+         procalcitonina = Procalcitonina,
+         troponina = Troponina) |> 
+  na.omit()
+```
+
+### Análisis univariado (OR no ajustado)
+
+Se estima el efecto de cada variable de forma individual sobre el riesgo de fallecimiento.
+
+Se calculan Odds Ratios (OR), intervalos de confianza al 95% y valor p.
+
+Las variables con p \< 0.05 pueden tener asociación significativa con el desenlace.
+
+```{r}
+hipert_covid_1 <- s12_hipert_covid |> 
+  mutate(hipert = relevel(as.factor(hipert), ref = "no"),
+         sexo = relevel(as.factor(sexo), ref = "femenino"),
+         desenlace = relevel(as.factor(desenlace), ref = "vivo")) |> 
+  na.omit()
+```
+
+Para generar la tabla del análisis univariado, se utiliza la función `tbl_uvregression()`, que permite obtener estimaciones de regresión logística para cada variable por separado. Se especifican parámetros como el método de regresión, la familia binomial (para modelos logísticos), y opciones de presentación como **intervalos de confianza**, **valores p** y el **formato de los OR**.
+
+```{r}
+tabla_reg_log_univ <- hipert_covid_1 |>
+  tbl_uvregression(
+    include = c(edad, sexo, hipert, p_a_sistolica, p_a_diastolica,
+                frec_cardiaca, frec_respiratoria),
+    y = desenlace,
+    method = glm,
+    method.args = list(family = binomial),
+    exponentiate = TRUE,
+    conf.int = TRUE,
+    hide_n = TRUE,
+    add_estimate_to_reference_rows = FALSE,
+    pvalue_fun = ~ style_pvalue(.x, digits = 3),
+    estimate_fun = ~ style_number(.x, digits = 2),
+    label = list(
+      edad ~ "Edad (años)",
+      sexo ~ "Sexo",
+      hipert ~ "Hipertensión",
+      p_a_sistolica ~ "Presión arterial sistólica",
+      p_a_diastolica ~ "Presión arterial diastólica (mmHg)",
+      frec_cardiaca ~ "Frecuencia cardiaca (lpm)",
+      frec_respiratoria ~ "Frecuencia respiratoria (rpm)"
+    )
+  ) |>
+  bold_labels() |>
+  bold_p(t = 0.05) |>
+  modify_header(estimate = "**OR no ajustado**", p.value = "**Valor P**")
+```
+
+Se imprime la tabla con los resultados univariados.\
+Sirve para identificar variables candidatas a ser incluidas en el modelo multivariado
+
+```{r}
+tabla_univ
+```
+
+### Modelo multivariado completo
+
+Se ajusta un modelo multivariado con todas las variables incluidas.\
+Este modelo permite controlar por variables de confusión y obtener OR ajustados.
+
+```{r}
+modelo_completo <- glm(desenlace ~ edad_cat + diabetes + epoc + falla_card +
+                       temperatura + saturacion + dimero_d + glucosa +
+                       creatinina + ferritina + pcr + procalcitonina + troponina,
+                       family = binomial(link = "logit"),
+                       data = covid_modelo)
+```
+
+### Selección automática de variables
+
+Selección hacia atrás: se eliminan variables no significativas una por una, buscando el modelo con menor AIC
+
+```{r}
+multi_backward <- step(modelo_completo, direction = "backward", trace = FALSE)
+
+```
+
+Selección hacia adelante: parte de un modelo vacío y agrega variables si mejoran el AIC.
+
+```{r}
+multi_forward <- step(modelo_completo, direction = "forward", trace = FALSE)
+
+```
+
+Stepwise: combina forward y backward para seleccionar el mejor subconjunto de variables predictivas.
+
+```{r}
+multi_stepwise <- step(modelo_completo, direction = "both", trace = FALSE)
+```
+
+## Evaluación de colinealidad
+
+Evalúa si hay colinealidad entre variables usando VIF. VIF \> 5 indica que dos o más variables están altamente correlacionadas, lo que puede distorsionar las estimaciones.
+
+```{r}
+performance::check_collinearity(multi_backward)
+performance::check_collinearity(multi_forward)
+performance::check_collinearity(multi_stepwise)
+```
+
+Modelo final
+
+Modelo final con las variables seleccionadas automáticamente y con baja colinealidad. Se incluyen edad, falla cardíaca, saturación de oxígeno, PCR y troponina como predictores independientes.
+
+```{r}
+modelo_final <- glm(
+  desenlace ~ edad_cat + falla_card + saturacion + pcr + troponina,
+  family = binomial(link = "logit"),
+  data = covid_modelo
+)
+
+```
+
+Tabla multivariada
+
+Se genera la tabla con los resultados del modelo ajustado. Se presentan los OR ajustados para cada variable, sus IC 95% y el valor p correspondiente.
+
+```{r}
+summary(multi_stepwise)
+```
+
+### Comparación univariado vs. multivariado
+
+Combina las tablas de regresión univariada y multivariada en una sola presentación. Esto permite comparar los efectos crudos con los efectos ajustados de cada variable.
+
+```{r}
+tabla_final <- tbl_merge(
+  list(tabla_univ, tabla_multi),
+  tab_spanner = c("**Univariado**", "**Multivariado**")
+)
+
+```
+
+```{r}
+tabla_final
+```
+
+En pacientes hospitalizados por COVID-19, se encontró que la edad mayor a 60 años, la presencia de falla cardíaca, la disminución en la saturación de oxígeno, así como niveles elevados de proteína C reactiva y troponina se asociaron significativamente con un mayor riesgo de fallecimiento hospitalario.

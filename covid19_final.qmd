@@ -1,0 +1,803 @@
+---
+title: "Covid19_pc2"
+author: "Franco Prada Francis, Gonzales Gala Jennifer, Ocho de la Cruz Phyllis , Yancce Buleje Jean Marco , Yañez de la Cruz Sheyny Briggite"
+format: html
+editor: visual
+---
+
+# INSTALACIÓN DE PAQUETES
+
+```{r}
+install.packages("readr")
+install.packages("dplyr")
+```
+
+```{r}
+
+library(readr)
+library(dplyr)
+library(ggplot2)
+library(forcats)
+library(gridExtra)
+```
+
+You can add options to executable code like this
+
+```{r}
+covid_19 <- read_csv("C:/Users/franc/Desktop/SISTEMAS Y ESTADISTICAS/PROYECT_UPSJB/Data/covid_19.csv")
+```
+
+The `echo: false` option disables the printing of code (only output is displayed).
+
+```{r}
+str(covid_19)
+```
+
+```{r}
+covid19 <- covid_19 |> 
+  mutate_if(is.character, as.factor)
+```
+
+```{r}
+covid19 |>  
+  ggplot(aes(x = pac_fue_hospital)) +
+  geom_bar()
+```
+
+```{r}
+covid19 |> 
+    ggplot(aes(x = fct_infreq(pac_fue_hospital))) +
+  geom_bar()
+```
+
+```{r}
+covid19 |>  
+  ggplot(aes(x = fct_infreq(pac_fue_hospital))) +
+  geom_bar() +
+  labs(y = "Frecuencia", x = "pac_fue_hospital")
+```
+
+```{r}
+covid19 |>  
+  ggplot(aes(x = pac_fue_hospital , y = ..count../sum(after_stat(count)))) +
+  geom_bar() +
+  labs(y = "Frecuencia", x = "pac_fue_hospital")
+```
+
+```{r}
+covid19 |> 
+  ggplot(aes(x = Saturación_O2)) +
+  geom_histogram() +
+  labs(y = "Frecuencia", x = "Saturación_O2")
+```
+
+```{r}
+covid19  |>  
+  ggplot(aes(x = Saturación_O2)) +
+  geom_histogram(aes(y = ..density..)) +
+  labs(y = "Density", x = "Saturación_O2")
+```
+
+```{r}
+hist_1 = covid19 |> ggplot(aes(x = Saturación_O2)) +
+  geom_histogram() +
+  labs(y = "Frecuencia", x = "Saturación_O2")
+
+hist_2 = covid19 |> ggplot(aes(x = Saturación_O2)) +
+  geom_histogram(aes(y = ..density..)) +
+  labs(y = "Density", x = "Saturación_O2")
+```
+
+```{r}
+grid.arrange(hist_1, hist_2, ncol = 2)
+```
+
+```{r}
+covid19 |>  
+  ggplot(aes(x = Saturación_O2)) +
+  geom_histogram(bins = 10) +
+  labs(y = "Frecuencia", x = "Saturación_O2")
+```
+
+```{r}
+covid19 |>  
+  ggplot(aes(x = Saturación_O2)) +
+  geom_histogram(
+    color = "white", ## Color de las barras
+    fill = "blue" ## Color de las barras
+    ) + 
+  labs(y = "Frecuencia", 
+       x = "Saturación_O2")
+```
+
+```{r}
+covid19 |>  
+  ggplot(aes(x = fct_infreq(pac_fue_hospital), fill = pac_fue_hospital)) +
+  geom_bar() +
+  labs(y = "Frecuencia", x = "pac_fue_hospital")
+```
+
+```{r}
+covid19 |> 
+  ggplot(aes(y = Plaquetas)) + ## Cambia y por x para invertir el gráfico
+  geom_boxplot() +
+  theme(axis.text.x  = element_blank(),
+        axis.ticks.x = element_blank()) +
+  labs(y = "Plaquetas")
+```
+
+```{r}
+box_plaquetas_base = boxplot(covid19$Plaquetas,
+                             ylab = "Plaquetas",
+                             horizontal = TRUE,  ## Cambia la dirección del gráfico
+                             col = "salmon")    ## Añadimos color
+```
+
+```{r}
+covid19 |> 
+  ggplot(aes(x = demencia, fill = Convulsión)) +
+  geom_bar(position = "dodge") + ## Sin este argumento, las barras estarán una sobre otras
+  labs(y = "Frecuencia",  
+       x = "demencia",
+       fill = "Desenlace")
+```
+
+```{r}
+addmargins(prop.table(
+  table(covid19$demencia , covid19$demencia), 
+  margin = 2), 1)
+```
+
+**CALCULO DE MUESTRA**
+
+```{r}
+install.packages("epiR")
+```
+
+```{r}
+library(epiR)
+```
+
+**SEMANA 6**
+
+```{r}
+install.packages("epiR")
+```
+
+```{r}
+library(epiR)
+```
+
+# 1. Cálculo de muestra para un estudio de prevalencia
+
+Un estudio realizado en la región de Lambayeque, Perú, estimó la seroprevalencia del SARS-CoV-2 en la población general. La población de referencia era de 1,197,260 habitantes, y se utilizó una prevalencia esperada del 4.5% basada en estudios previos. Se estableció un nivel de confianza del 95% y una precisión absoluta de 1% (0.01). (**DOI:** [10.7717/peerj.11210](https://doi.org/10.7717/peerj.11210))
+
+```{r}
+epi.sssimpleestb(N = 1197260, Py = 0.045, 
+                 epsilon = 0.01, error = "relative", 
+                 se = 1, sp = 1, 
+                 nfractional = FALSE, conf.level = 0.95)
+```
+
+Es necesario 484998 participantes
+
+# 2. Cálculo de muestra para un estudio de casos y controles
+
+**Caso 2**: Un investigador desea evaluar la asociación entre la exposición al humo de tabaco y la gravedad de la enfermedad por COVID-19. Para ello, se comparará la frecuencia de exposición al humo de tabaco entre dos grupos: una muestra de pacientes hospitalizados por COVID-19 severo (casos) y una muestra de pacientes con COVID-19 leve o moderado (controles).
+
+Se plantea que el número de casos y controles será igual. El estudio busca detectar una razón de momios (odds ratio) de 3.03. Además, un estudio previo reportó que la prevalencia de exposición al humo de tabaco en los controles es del 27.6% ( DOI: 10.3389/fpubh.2023.1210102)
+
+```{r}
+epi.sscc(OR = 3.03, p1 = NA, 
+         p0 = 0.276, n = NA, 
+         power = 0.80, r = 1, 
+         phi.coef = 0, design = 1, 
+         sided.test = 2, conf.level = 0.95, 
+         method = "unmatched", nfractional = FALSE, 
+         fleiss = FALSE)
+```
+
+Es necesario 55 casos y 55 controles.
+
+# 3. Cálculo de muestra para un estudio de cohorte
+
+**Caso 3:** Un grupo de investigadores desea evaluar el efecto de la hipertensión sobre el riesgo de mortalidad en pacientes con trasplante renal infectados por COVID-19. Para ello, reclutarán participantes del Hospital Regional de Ica y los seguirán durante 4 años para identificar los casos de fallecimiento. Los investigadores buscan tener un 80% de poder estadístico para detectar un riesgo de muerte 1.96 veces mayor en pacientes con hipertensión, en comparación con aquellos sin hipertensión, utilizando un nivel de significancia del 0.05. Un estudio previo reportó que, entre los pacientes con trasplante renal sin hipertensión, fallecieron 60 de 621.
+
+**Pregunta:** ¿Cuál sería el tamaño de muestra necesario para los grupos de expuestos (con hipertensión) y no expuestos (sin hipertensión)?
+
+```{r}
+epi.sscohortt(irexp1 = 58/317, irexp0 = 60/621, FT = 4, n = NA, 
+              power = 0.80, r = 1, design = 1, sided.test = 2, 
+              nfractional = FALSE, conf.level = 0.95)
+```
+
+Es necesario 177 de expuestos y 177 no expuestos.
+
+# 4. Cálculo de poder estadístico
+
+**Caso 4:** Un grupo de investigadores desea evaluar el efecto de la hipertensión sobre el riesgo de mortalidad en pacientes con trasplante renal infectados por COVID-19. Para ello, reclutarán participantes de un hospital en Brasil y los seguirán durante 4 años para identificar los casos de fallecimiento. Se planea incluir a 225 pacientes con hipertensión (HTN) y 75 pacientes sin hipertensión, con el objetivo de detectar un riesgo de muerte asociado a la hipertensión de 1.96 ([DOI: 10.1111/j.1600-6143.2006.01727.x](https://doi.org/10.1111/j.1600-6143.2006.01727.x)), utilizando un nivel de significancia de 0.05.Un estudio previo reportó que, entre los pacientes con trasplante renal sin hipertensión, fallecieron 60 de 621.
+
+**Pregunta:** ¿Cuál es el poder estadístico con el tamaño de muestra propuesto para cada grupo (hipertensión y no hipertensión)?
+
+```{r}
+epi.sscohortt(irexp1 = 225/300, irexp0 = 60/621, FT = 4, n = 300, 
+              power = NA, r = 1, design = 1, sided.test = 2, 
+              nfractional = FALSE, conf.level = 0.95)
+
+```
+
+**SEMANA 7 - GLUCOSA**
+
+```{r}
+library(rio)
+library(here)
+```
+
+```{r}
+data_glucosa_circun <- import(here("data", "s07_glucosa_circun.csv"))
+```
+
+```{r}
+shapiro.test(data_glucosa_circun$circun_cintura)
+
+```
+
+```{r}
+shapiro.test(data_glucosa_circun$glucosa)
+
+```
+
+```{r}
+table(data_glucosa_circun$sindrom_metabolico)
+
+```
+
+```{r}
+chisq.test(x = c(65, 135), p = c(0.269, 0.731))
+
+```
+
+PC3_1
+
+## INSTALACIÓN Y CARGA DE PAQUETES
+
+```{r}
+install.packages("gtsummary")
+install.packages("broom.helpers")
+install.packages("car")
+install.packages("cardx")
+```
+
+```{r}
+library(tidyverse)
+library(readr)
+library(gtsummary)
+library(broom.helpers)
+library(car)
+library(cardx)
+```
+
+## CARGA DE BASE DATOS
+
+Se carga la base de datos `covid_19.csv`, la cual contiene información clínica, demográfica y de laboratorio de pacientes diagnosticados con COVID-19. Esta base contiene 855 registros y 85 variables.
+
+```{r}
+covid_19 <- read_csv("C:/Users/franc/Desktop/SISTEMAS Y ESTADISTICAS/PROYECT_UPSJB/Data/covid_19.csv")
+```
+
+## PREPARAR VARIABLES PARA MODELOS
+
+Se crean las variables categóricas necesarias para la regresión logística. La variable `desenla_fallecido` indica si el paciente falleció (Sí/No), y se establece "No" como referencia. La variable `enfer_renal` indica la presencia o ausencia de enfermedad renal crónica, también con "No" como referencia.
+
+```{r}
+covid <- covid_19 |>
+  mutate(
+    desenlace = relevel(as.factor(desenla_fallecido), ref = "No"),
+    enfer_renal = relevel(as.factor(enfer_renal), ref = "No")
+  )
+```
+
+## **REGRESIÓN LOGÍSTICA (MORTALIDAD \~ ENFERMEDAD RENAL + EDAD)**
+
+Se ajusta un modelo de regresión logística para evaluar la asociación entre mortalidad (`desenla_fallecido`) y dos variables independientes: presencia de enfermedad renal crónica (`enfer_renal`) y edad (`Edad`). El modelo permite estimar el riesgo de fallecimiento según estas características clínicas.
+
+```{r}
+modelo_log <- glm(desenlace ~ enfer_renal + Edad,
+                  family = binomial,
+                  data = covid)
+
+summary(modelo_log)
+```
+
+## CALCULAR ODDS RATIO (OR) E INTERVALOS DE CONFIANZA
+
+Se calculan los odds ratios (OR) y sus respectivos intervalos de confianza al 95% para los coeficientes obtenidos en el modelo. Estos valores permiten interpretar la magnitud y dirección de la asociación entre las variables independientes y el desenlace de mortalidad.
+
+```{r}
+exp(coef(modelo_log)[-1])  # OR
+exp(confint(modelo_log))[-1, , drop = FALSE]  # IC 95%
+```
+
+Se genera una tabla resumen con los resultados del modelo de regresión logística. La tabla incluye los odds ratios (OR) no ajustados, intervalos de confianza al 95% y valores p para las variables Edad y Enfermedad renal crónica, en relación al desenlace de mortalidad.
+
+```{r}
+theme_gtsummary_language(language = "es")
+
+tabla_logistica <- covid |>
+  tbl_uvregression(
+    include = c(Edad, enfer_renal),
+    y = desenlace,
+    method = glm,
+    method.args = list(family = binomial),
+    exponentiate = TRUE,
+    conf.int = TRUE,
+    hide_n = TRUE,
+    label = list(
+      Edad ~ "Edad (años)",
+      enfer_renal ~ "Enfermedad renal crónica"
+    )
+  ) |>
+  bold_labels() |>
+  bold_p(t = 0.05) |>
+  modify_header(estimate = "**OR no ajustado**", p.value = "**Valor P**")
+
+tabla_logistica
+
+```
+
+En la población estudiada, la presencia de enfermedad renal crónica se asocia con un aumento significativo en el riesgo de fallecimiento por COVID-19. Asimismo, la edad muestra una relación positiva con la mortalidad, indicando que a mayor edad, mayor es el riesgo de fallecer.
+
+## REGRESIÓN DE POISSON (DÍAS HOSPITALIZADO)
+
+Se convierten en factores las variables `diabetes_mell_simple` y `falla_card_conges`, que indican si el paciente presenta diabetes mellitus o falla cardíaca congestiva. Se establece la categoría "No" como referencia para ambas.
+
+```{r}
+covid <- covid |>
+  mutate(
+    diabetes = relevel(as.factor(diabetes_mell_simple), ref = "No"),
+    falla_cardiaca = relevel(as.factor(falla_card_conges), ref = "No")
+  )
+
+```
+
+Se ajusta un modelo de regresión de Poisson para evaluar la asociación entre la duración de la hospitalización (`duraci_hospita_diaz`) y las variables diabetes mellitus, falla cardíaca congestiva y edad. Este modelo permite estimar el efecto de estas condiciones sobre el número de días de hospitalización.
+
+```{r}
+modelo_poisson <- glm(duraci_hospita_diaz ~ diabetes + falla_cardiaca + Edad,
+                      data = covid,
+                      family = poisson())
+
+summary(modelo_poisson)
+
+```
+
+Finalmente se calculan las razones de tasas de incidencia (IRR) y los intervalos de confianza al 95% para las variables del modelo de Poisson. Los IRR indican cuánto se incrementa o disminuye la duración de hospitalización según la presencia de cada factor.
+
+Se genera una tabla con los resultados del modelo de Poisson, mostrando las razones de incidencia (IRR), intervalos de confianza al 95% y valores p para cada predictor. Esta tabla resume el efecto de la edad, la diabetes y la falla cardíaca en la duración de la hospitalización.
+
+```{r}
+tabla_poisson <- covid |>
+  tbl_uvregression(
+    include = c(diabetes, falla_cardiaca, Edad),
+    y = duraci_hospita_diaz,
+    method = glm,
+    method.args = list(family = poisson),
+    exponentiate = TRUE,
+    conf.int = TRUE,
+    hide_n = TRUE,
+    label = list(
+      diabetes ~ "Diabetes mellitus simple",
+      falla_cardiaca ~ "Falla cardíaca congestiva",
+      Edad ~ "Edad (años)"
+    )
+  ) |>
+  bold_labels() |>
+  bold_p(t = 0.05) |>
+  modify_header(estimate = "**IRR no ajustado**", p.value = "**Valor P**")
+
+tabla_poisson
+
+
+```
+
+Los pacientes con diabetes mellitus simple y aquellos con falla cardíaca congestiva presentan una mayor duración de hospitalización. Además, por cada año adicional de edad, se observa un ligero aumento en el número de días hospitalizados.
+
+## Pc3_2
+
+## Instalación del paquete adicional
+
+Instala el paquete `performance`, necesario para evaluar la colinealidad (VIF) entre predictores en modelos multivariados.
+
+```{r}
+install.packages("performance")
+```
+
+## Carga de paquetes
+
+Necesarios para manipular datos (`tidyverse`, `readr`), realizar regresiones logísticas (`car`, `survival`), generar tablas estadísticas (`gtsummary`) y verificar colinealidad (`performance`).
+
+```{r}
+library(tidyverse)
+library(readr)
+library(gtsummary)
+library(car)
+library(survival)
+library(performance)
+```
+
+## Carga de la base de datos COVID-19
+
+```{r}
+covid_19 <- read_csv("C:/Users/franc/Desktop/SISTEMAS Y ESTADISTICAS/PROYECT_UPSJB/Data/covid_19.csv")
+```
+
+## Preparación de variables
+
+Se preparan las variables para el análisis:
+
+-   desenlace es la variable dependiente (falleció: Sí/No).
+
+-   edad_cat es la edad categorizada, usando como referencia 0–60 años.
+
+-   diabetes se crea unificando diabetes simple y complicada.
+
+Se renombran variables de laboratorio y se seleccionan columnas relevantes. Se eliminan los registros incompletos para evitar errores en los modelos.
+
+```{r}
+covid_modelo <- covid |> 
+  mutate(
+    desenlace = relevel(as.factor(desenla_fallecido), ref = "No"),
+    edad_cat = relevel(as.factor(edad), ref = "0-60"),
+    diabetes = if_else(diabetes_mell_simple == "Sí" | diabetes_mell_complicada == "Sí", "Sí", "No"),
+    epoc = as.factor(enf_pulmonar_obstruc_cronica),
+    falla_card = as.factor(falla_card_conges)
+  ) |> 
+  select(desenlace, edad_cat, diabetes, epoc, falla_card,
+         temperatura = Temperatura,
+         saturacion = Saturación_O2,
+         dimero_d = Dímero_D,
+         glucosa = Glucosa,
+         creatinina = Creatinina,
+         ferritina = Ferritina,
+         pcr = `Proteína_C_reactiva`,
+         procalcitonina = Procalcitonina,
+         troponina = Troponina) |> 
+  na.omit()
+
+
+```
+
+## Análisis univariado (OR no ajustado)
+
+Se estima el efecto de cada variable de forma individual sobre el riesgo de fallecimiento.\
+
+Se calculan Odds Ratios (OR), intervalos de confianza al 95% y valor p.\
+
+Las variables con p \< 0.05 pueden tener asociación significativa con el desenlace.
+
+```{r}
+tabla_univ <- covid_modelo |>
+  tbl_uvregression(
+    include = c(edad_cat, diabetes, epoc, falla_card,
+                temperatura, saturacion, dimero_d, glucosa,
+                creatinina, ferritina, pcr, procalcitonina, troponina),
+    y = desenlace,
+    method = glm,
+    method.args = list(family = binomial),
+    exponentiate = TRUE,
+    conf.int = TRUE,
+    hide_n = TRUE,
+    add_estimate_to_reference_rows = FALSE,
+    pvalue_fun = ~ style_pvalue(.x, digits = 3),
+    estimate_fun = ~ style_number(.x, digits = 2),
+    label = list(
+      edad_cat ~ "Edad",
+      diabetes ~ "Diabetes",
+      epoc ~ "EPOC",
+      falla_card ~ "Falla cardíaca",
+      temperatura ~ "Temperatura (°C)",
+      saturacion ~ "Saturación O2 (%)",
+      dimero_d ~ "Dímero D",
+      glucosa ~ "Glucosa",
+      creatinina ~ "Creatinina",
+      ferritina ~ "Ferritina",
+      pcr ~ "Proteína C reactiva",
+      procalcitonina ~ "Procalcitonina",
+      troponina ~ "Troponina"
+    )
+  ) |>
+  bold_labels() |>
+  bold_p(t = 0.05) |>
+  modify_header(estimate = "**OR no ajustado**", p.value = "**Valor P**")
+
+```
+
+Se imprime la tabla con los resultados univariados.\
+Sirve para identificar variables candidatas a ser incluidas en el modelo multivariado.
+
+```{r}
+tabla_univ
+```
+
+### Modelo multivariado completo
+
+Se ajusta un modelo multivariado con todas las variables incluidas.\
+Este modelo permite controlar por variables de confusión y obtener OR ajustados.
+
+```{r}
+modelo_completo <- glm(desenlace ~ edad_cat + diabetes + epoc + falla_card +
+                       temperatura + saturacion + dimero_d + glucosa +
+                       creatinina + ferritina + pcr + procalcitonina + troponina,
+                       family = binomial(link = "logit"),
+                       data = covid_modelo)
+
+```
+
+### Selección automática de variables
+
+Selección hacia atrás: se eliminan variables no significativas una por una, buscando el modelo con menor AIC
+
+```{r}
+multi_backward <- step(modelo_completo, direction = "backward", trace = FALSE)
+
+```
+
+Selección hacia adelante: parte de un modelo vacío y agrega variables si mejoran el AIC.
+
+```{r}
+multi_forward <- step(modelo_completo, direction = "forward", trace = FALSE)
+
+```
+
+Stepwise: combina forward y backward para seleccionar el mejor subconjunto de variables predictivas.
+
+```{r}
+multi_stepwise <- step(modelo_completo, direction = "both", trace = FALSE)
+```
+
+## Evaluación de colinealidad
+
+Evalúa si hay colinealidad entre variables usando VIF.
+VIF \> 5 indica que dos o más variables están altamente correlacionadas, lo que puede distorsionar las estimaciones.
+
+```{r}
+performance::check_collinearity(multi_backward)
+performance::check_collinearity(multi_forward)
+performance::check_collinearity(multi_stepwise)
+```
+
+## Modelo final
+
+Modelo final con las variables seleccionadas automáticamente y con baja colinealidad.
+Se incluyen edad, falla cardíaca, saturación de oxígeno, PCR y troponina como predictores independientes.
+
+```{r}
+modelo_final <- glm(
+  desenlace ~ edad_cat + falla_card + saturacion + pcr + troponina,
+  family = binomial(link = "logit"),
+  data = covid_modelo
+)
+
+```
+
+### Tabla multivariada
+
+Se genera la tabla con los resultados del modelo ajustado.
+Se presentan los OR ajustados para cada variable, sus IC 95% y el valor p correspondiente.
+
+```{r}
+tabla_multi <- modelo_final |>
+  tbl_regression(
+    exponentiate = TRUE,
+    conf.int = TRUE,
+    pvalue_fun = ~ style_pvalue(.x, digits = 3),
+    estimate_fun = ~ style_number(.x, digits = 2),
+    label = list(
+      edad_cat ~ "Edad",
+      falla_card ~ "Falla cardíaca",
+      saturacion ~ "Saturación O2 (%)",
+      pcr ~ "Proteína C reactiva",
+      troponina ~ "Troponina"
+    )
+  ) |>
+  bold_labels() |>
+  bold_p(t = 0.05) |>
+  modify_header(estimate = "**OR ajustado**", p.value = "**Valor P**")
+
+```
+
+## Comparación univariado vs. multivariado
+
+Combina las tablas de regresión univariada y multivariada en una sola presentación.
+Esto permite comparar los efectos crudos con los efectos ajustados de cada variable.
+
+```{r}
+tabla_final <- tbl_merge(
+  list(tabla_univ, tabla_multi),
+  tab_spanner = c("**Univariado**", "**Multivariado**")
+)
+
+```
+
+```{r}
+tabla_final
+```
+
+En pacientes hospitalizados por COVID-19, se encontró que la edad mayor a 60 años, la presencia de falla cardíaca, la disminución en la saturación de oxígeno, así como niveles elevados de proteína C reactiva y troponina se asociaron significativamente con un mayor riesgo de fallecimiento hospitalario.
+
+## Pc_4
+
+## Instalar y cargar los paquetes
+
+Este código instala los paquetes necesarios para realizar el análisis de agrupamiento y manejo de datos.
+
+```{r}
+install.packages("factoextra")
+install.packages("cluster")
+install.packages("rio")
+
+```
+
+Aquí se cargan las librerías que permiten importar los datos (`rio`), manipular datos (`tidyverse`), y aplicar técnicas de clustering como K-means y jerárquico (`cluster`, `factoextra`)
+
+```{r}
+library(factoextra)
+library(cluster)
+library(tidyverse)
+library(readr)
+library(rio)
+
+```
+
+## Importar los datos
+
+```{r}
+covid_19 <- read_csv("C:/Users/franc/Desktop/SISTEMAS Y ESTADISTICAS/PROYECT_UPSJB/Data/covid_19.csv")
+```
+
+## Seleccionar solo las variables numéricas relevantes
+
+Se seleccionan únicamente las columnas que contienen variables numéricas continuas relacionadas con el estado clínico del paciente.
+
+```{r}
+covid_numerico <- covid_19%>%
+  select(Dímero_D, Plaquetas, INR, Creatinina, Glucosa,
+         AST, ALT, Glóbulos_blancos, Linfocitos, IL6,
+         Ferritina, Proteína_C_reactiva, Procalcitonina, Troponina)
+
+```
+
+## Eliminar registros con datos faltantes
+
+Se eliminan las filas que tengan valores perdidos (NA) en cualquiera de las 14 variables seleccionadas.
+
+Se garantiza que todas las observaciones incluidas tengan datos completos para el análisis, mejorando la calidad del agrupamiento.
+
+```{r}
+covid_numerico <- na.omit(covid_numerico)
+
+```
+
+## Escalar (estandarizar) las variables
+
+Se estandarizan las variables para que todas tengan la misma escala (media 0 y desviación estándar 1), lo cual es necesario para el análisis de distancias.
+
+Se obtiene un objeto `datos_estandar` que contiene las variables numéricas normalizadas, listas para el clustering.
+
+```{r}
+datos_estandar <- scale(covid_numerico)
+```
+
+## Calcular la matriz de distancias
+
+Se calcula la distancia euclidiana entre cada paciente con base en sus características clínicas y de laboratorio.
+
+Se genera una matriz de distancias que representa qué tan parecidos o diferentes son los pacientes entre sí.
+
+```{r}
+distancia <- dist(datos_estandar, method = "euclidean")
+```
+
+## Visualizar la matriz de distancias
+
+Se grafica la matriz de distancias con un gradiente de colores para mostrar visualmente las similitudes y diferencias entre pacientes.
+
+Las zonas oscuras indican mayor similitud, las claras indican pacientes más diferentes.
+
+```{r}
+fviz_dist(distancia, gradient = list(low = "#00AFBB", mid = "white", high = "#FC4E07"))
+```
+
+## Agrupamiento jerárquico
+
+Se aplica el método jerárquico de agrupamiento con la técnica de Ward, que minimiza la varianza dentro de los grupos.
+
+Se construye un árbol jerárquico (dendrograma) que agrupa a los pacientes por similitud.
+
+```{r}
+hc <- hclust(distancia, method = "ward.D2")
+```
+
+## Graficar el dendrograma
+
+Se visualiza el dendrograma y se cortan los grupos en 3 clústeres, resaltando los límites con rectángulos.
+
+Se identifican 3 grupos jerárquicos distintos de pacientes según sus características clínicas y de laboratorio.
+
+```{r}
+fviz_dend(hc, k = 3, rect = TRUE, cex = 0.5,
+          main = "Dendrograma - Agrupamiento Jerárquico")
+
+```
+
+## Cortar el dendrograma en 3 grupos
+
+Se asigna a cada paciente un grupo (1, 2 o 3) de acuerdo con el corte hecho en el dendrograma.7
+
+Se obtiene un vector `grupos_hc` que indica a qué grupo pertenece cada paciente.
+
+```{r}
+grupos_hc <- cutree(hc, k = 3)
+```
+
+## Determinar el número óptimo de clústeres (método del codo)
+
+Se aplica el método del codo para ver visualmente cuántos clústeres son adecuados según la variabilidad explicada.
+
+El gráfico ayuda a decidir cuántos grupos usar en el algoritmo K-means.
+
+```{r}
+fviz_nbclust(datos_estandar, kmeans, method = "wss")
+```
+
+## Aplicar algoritmo K-means
+
+Se ejecuta el algoritmo K-means con 3 grupos, repitiendo el proceso 25 veces para obtener una solución más estable.
+
+Cada paciente es asignado a un grupo (1, 2 o 3) según su perfil clínico-laboratorial.
+
+```{r}
+set.seed(123)
+kmeans_result <- kmeans(datos_estandar, centers = 3, nstart = 25)
+```
+
+Visualizar los clústeres formados (K-means)
+
+Se grafica la agrupación de los pacientes en un espacio bidimensional (PCA), mostrando los clústeres formados.
+
+Visualización clara de los 3 grupos y cómo se distribuyen según sus similitudes.
+
+```{r}
+fviz_cluster(kmeans_result, data = datos_estandar,
+             ellipse.type = "euclid",
+             repel = TRUE,
+             ggtheme = theme_minimal())
+
+```
+
+## Agregar los grupos a la base original
+
+Se filtra la base original para que solo contenga los pacientes incluidos en el clustering y se les asigna su grupo correspondiente.
+
+Se obtiene la base `covid_data_filtrado` con una nueva columna `grupo_kmeans` que indica el grupo de cada paciente.
+
+```{r}
+covid_data_filtrado <- covid_19[!is.na(rowSums(covid_numerico)), ]
+covid_data_filtrado$grupo_kmeans <- kmeans_result$cluster
+
+```
+
+## Ver las características promedio por grupo
+
+Se calcula el promedio de todas las variables numéricas por cada grupo de pacientes.
+
+Se observan las diferencias en las variables clínicas y de laboratorio entre los grupos, lo cual puede ayudar a identificar patrones clínicos (por ejemplo, un grupo con valores inflamatorios más altos).
+
+```{r}
+covid_data_filtrado %>%
+  group_by(grupo_kmeans) %>%
+  summarise(across(where(is.numeric), mean, na.rm = TRUE))
+
+```
+
+El análisis de clúster permitió agrupar a los pacientes con COVID-19 en **tres grupos diferenciados** según sus parámetros de laboratorio. Estos grupos reflejan **patrones distintos de presentación clínica**, que podrían estar relacionados con el pronóstico o la necesidad de tratamiento intensivo. Este tipo de análisis puede ayudar a identificar perfiles de pacientes que requieren mayor atención médica.

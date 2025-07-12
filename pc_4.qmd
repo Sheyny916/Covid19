@@ -1,0 +1,154 @@
+---
+title: "PC_4"
+author: "Franco Prada Francis, Gonzales Gala Jennifer, Ocho de la Cruz Phyllis , Yancce Buleje Jean Marco , Yañez de la Cruz Sheyny Briggite"
+format: html
+editor: visual
+---
+
+## Instalar y cargar los paquetes
+
+```{r}
+install.packages("factoextra")
+install.packages("cluster")
+install.packages("rio")
+```
+
+```{r}
+library(factoextra)
+library(cluster)
+library(here)
+library(rio)
+library(tidyverse)
+library(readr)
+```
+
+## **Importando los datos**
+
+```{r}
+covid_19 <- read_csv("C:/Users/franc/Desktop/SISTEMAS Y ESTADISTICAS/PROYECT_UPSJB/Data/covid_19.csv")
+```
+
+## Seleccionar solo las variables numéricas relevantes
+
+Se seleccionan únicamente las columnas que contienen variables numéricas continuas relacionadas con el estado clínico del paciente
+
+```{r}
+covid_numerico <- covid_19%>%
+  select(Dímero_D, Plaquetas, INR, Creatinina, Glucosa,
+         AST, ALT, Glóbulos_blancos, Linfocitos, IL6,
+         Ferritina, Proteína_C_reactiva, Procalcitonina, Troponina)
+```
+
+### Eliminar registros con datos faltantes
+
+Se eliminan las filas que tengan valores perdidos (NA) en cualquiera de las 14 variables seleccionadas.
+
+Se garantiza que todas las observaciones incluidas tengan datos completos para el análisis, mejorando la calidad del agrupamiento.
+
+```{r}
+covid_numerico <- na.omit(covid_numerico)
+
+```
+
+### Escalar (estandarizar) las variables
+
+Se estandarizan las variables para que todas tengan la misma escala (media 0 y desviación estándar 1), lo cual es necesario para el análisis de distancias.
+
+Se obtiene un objeto `datos_estandar` que contiene las variables numéricas normalizadas, listas para el clustering.
+
+```{r}
+datos_estandar <- scale(covid_numerico)
+```
+
+### Calcular la matriz de distancias
+
+Se calcula la distancia euclidiana entre cada paciente con base en sus características clínicas y de laboratorio.
+
+Se genera una matriz de distancias que representa qué tan parecidos o diferentes son los pacientes entre sí.
+
+```{r}
+distancia <- dist(datos_estandar, method = "euclidean")
+```
+
+### Visualizar la matriz de distancias
+
+Se grafica la matriz de distancias con un gradiente de colores para mostrar visualmente las similitudes y diferencias entre pacientes.
+
+Las zonas oscuras indican mayor similitud, las claras indican pacientes más diferentes.
+
+```{r}
+fviz_dist(distancia, gradient = list(low = "#00AFBB", mid = "white", high = "#FC4E07"))
+```
+
+### Agrupamiento jerárquico
+
+Se aplica el método jerárquico de agrupamiento con la técnica de Ward, que minimiza la varianza dentro de los grupos.
+
+Se construye un árbol jerárquico (dendrograma) que agrupa a los pacientes por similitud.
+
+```{r}
+hc <- hclust(distancia, method = "ward.D2")
+```
+
+### Graficar el dendrograma
+
+Se visualiza el dendrograma y se cortan los grupos en 3 clústeres, resaltando los límites con rectángulos.
+
+Se identifican 3 grupos jerárquicos distintos de pacientes según sus características clínicas y de laboratorio.
+
+```{r}
+fviz_dend(hc, k = 3, rect = TRUE, cex = 0.5,
+          main = "Dendrograma - Agrupamiento Jerárquico")
+```
+
+### **Cortar el dendrograma en 3 grupos**
+
+Asignamos a cada paciente un grupo según el dendrograma.
+
+```{r}
+grupos_hc <- cutree(hc, k = 3)
+
+```
+
+### **Determinar el número óptimo de clústeres para K-means**
+
+Usamos el método del codo para decidir cuántos grupos usar.
+
+```{r}
+fviz_nbclust(datos_estandar, kmeans, method = "wss")
+```
+
+### **Aplicar algoritmo K-means**
+
+Una vez elegido K (por ejemplo, 3), aplicamos K-means.
+
+```{r}
+set.seed(123)  # Para resultados reproducibles
+
+kmeans_result <- kmeans(datos_estandar, centers = 3, nstart = 25)
+```
+
+### **Visualizar clústeres con PCA**
+
+Muestra los pacientes en un plano 2D según sus similitudes.
+
+```{r}
+fviz_cluster(kmeans_result, data = datos_estandar,
+             ellipse.type = "euclid",
+             repel = TRUE,
+             ggtheme = theme_minimal())
+```
+
+### Ver las características promedio por grupo
+
+Se calcula el promedio de todas las variables numéricas por cada grupo de pacientes.
+
+Se observan las diferencias en las variables clínicas y de laboratorio entre los grupos, lo cual puede ayudar a identificar patrones clínicos (por ejemplo, un grupo con valores inflamatorios más altos).
+
+```{r}
+covid_data_filtrado %>%
+  group_by(grupo_kmeans) %>%
+  summarise(across(where(is.numeric), mean, na.rm = TRUE))
+```
+
+El análisis de clúster permitió agrupar a los pacientes con COVID-19 en **tres grupos diferenciados** según sus parámetros de laboratorio. Estos grupos reflejan **patrones distintos de presentación clínica**, que podrían estar relacionados con el pronóstico o la necesidad de tratamiento intensivo. Este tipo de análisis puede ayudar a identificar perfiles de pacientes que requieren mayor atención médica.
